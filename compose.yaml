@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: fact_checker
+      POSTGRES_USER: fact_checker
+      POSTGRES_PASSWORD: fact_checker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fact_checker -d fact_checker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    image: temporalio/temporal:1.9.1
+    command: ["server", "start-dev", "--ip", "0.0.0.0"]
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+
+  api:
+    build: .
+    environment:
+      FCS_ENVIRONMENT: local
+      FCS_DATABASE_URL: postgresql+psycopg://fact_checker:fact_checker@postgres:5432/fact_checker
+      FCS_TEMPORAL_HOST: temporal:7233
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    profiles: ["app"]
+
+  worker:
+    build: .
+    command: ["python", "-m", "fact_checking_system.worker"]
+    environment:
+      FCS_ENVIRONMENT: local
+      FCS_DATABASE_URL: postgresql+psycopg://fact_checker:fact_checker@postgres:5432/fact_checker
+      FCS_TEMPORAL_HOST: temporal:7233
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    profiles: ["app"]
+
+volumes:
+  postgres-data:
+
