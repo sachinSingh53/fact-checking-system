@@ -1,48 +1,23 @@
-PYTHON ?= python3
-VENV := .venv
-BIN := $(VENV)/bin
+.PHONY: install backend-install frontend-install backend-dev frontend-dev backend-check frontend-check check
 
-.PHONY: install dev worker test lint format typecheck check migrate migration infra-up infra-down
+install: backend-install frontend-install
 
-install:
-	$(PYTHON) -m venv $(VENV)
-	$(BIN)/python -m pip install --upgrade pip
-	$(BIN)/python -m pip install -e '.[dev]'
+backend-install:
+	$(MAKE) -C backend install
 
-dev:
-	$(BIN)/uvicorn fact_checking_system.main:app --reload --host 0.0.0.0 --port 8000
+frontend-install:
+	pnpm --dir frontend install
 
-worker:
-	$(BIN)/python -m fact_checking_system.worker
+backend-dev:
+	$(MAKE) -C backend dev
 
-test:
-	$(BIN)/pytest
+frontend-dev:
+	pnpm --dir frontend dev
 
-lint:
-	$(BIN)/ruff check .
+backend-check:
+	$(MAKE) -C backend check
 
-format:
-	$(BIN)/ruff format .
+frontend-check:
+	pnpm --dir frontend check
 
-typecheck:
-	$(BIN)/mypy
-
-check:
-	$(BIN)/ruff format --check .
-	$(BIN)/ruff check .
-	$(BIN)/mypy
-	$(BIN)/pytest
-
-migrate:
-	$(BIN)/alembic upgrade head
-
-migration:
-	@test -n "$(name)" || (echo "usage: make migration name=describe_change"; exit 1)
-	$(BIN)/alembic revision --autogenerate -m "$(name)"
-
-infra-up:
-	docker compose up -d postgres temporal
-
-infra-down:
-	docker compose down
-
+check: backend-check frontend-check
